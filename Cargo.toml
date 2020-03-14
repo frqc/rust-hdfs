@@ -1,0 +1,17 @@
+[package]
+name = "rust-hdfs"
+version = "0.1.0"
+authors = ["frqc"]
+build = "build.rs"
+edition = "2018"
+
+[lib]
+# workaround for https://github.com/rust-lang/rust-bindgen/issues/1313
+doctest = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "*"
