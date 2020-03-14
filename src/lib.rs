@@ -19,7 +19,7 @@ mod tests {
     }
 
     #[test]
-    fn basic_hdfs(){
+    fn hdfs_write(){
 	unsafe{
 		let name_node = CString::new("default").expect("CString::new failed");
 		let fs = hdfsConnect(name_node.as_ptr(), 0);
@@ -27,12 +27,10 @@ mod tests {
 		let write_path = CString::new("t.txt").expect("CString::new failed");
 		let write_file = hdfsOpenFile(fs, write_path.as_ptr(), (O_WRONLY |O_CREAT) as i32, 0, 0, 0);
 
-		let buffer = String::from("Hello world\n");
-		let buffer_len = buffer.len();
-		let buffer_ptr = CString::new(buffer).expect("CString::new failed");
-		let buffer_ptr = buffer_ptr.as_ptr() as *const c_void;
+		let buffer = String::from("HHHHHello worldddddd\n");
+		let buffer_ptr = buffer.as_ptr() as *const c_void;
 
-		let written_bytes = hdfsWrite(fs, write_file, buffer_ptr, buffer_len as i32);
+		let written_bytes = hdfsWrite(fs, write_file, buffer_ptr, buffer.len() as i32);
 
 		let result = hdfsFlush(fs, write_file);
 
