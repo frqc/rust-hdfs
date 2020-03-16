@@ -72,6 +72,62 @@ mod tests {
 	}
 
 	#[test]
+	fn test_pread(){
+		unsafe {
+			let name_node = CString::new("default").expect("CString::new failed");
+			let fs = hdfsConnect(name_node.as_ptr(), 0);
+			let file_name: String = thread_rng().sample_iter(&Alphanumeric).take(10).collect();
+			
+			// write file 
+			let write_path = CString::new(file_name.clone()).expect("CString::new failed");
+			let write_file = hdfsOpenFile(fs, write_path.as_ptr(), (O_WRONLY |O_CREAT) as i32, 0, 0, 0);
+
+			let s: Vec<String> = (0..1000).map(|x| x.to_string()).collect();
+			let write_buffer = s.join("-");
+			let write_buffer_ptr = write_buffer.as_ptr() as *const c_void;
+
+			let written_bytes = hdfsWrite(fs, write_file, write_buffer_ptr, write_buffer.len() as i32);
+			let _result = hdfsFlush(fs, write_file);
+
+			hdfsCloseFile(fs, write_file);
+			assert_eq!(written_bytes as usize, write_buffer.len());
+
+			// read file 
+			
+			let read_path = CString::new(file_name.clone()).expect("CString::new failed");
+			let read_file = hdfsOpenFile(fs, read_path.as_ptr(), O_RDONLY as i32, 0, 0, 0);
+
+			let read_buffer_size:i32 = 100;
+			let read_buffer:Vec<u8> = Vec::with_capacity(read_buffer_size as usize + 1);
+			let read_buffer = read_buffer.as_ptr();
+
+			let mut remaining = written_bytes;
+			
+			while remaining > 0 {
+				let pos = (written_bytes - remaining) as i64;
+				let read_size = std::cmp::min(remaining, read_buffer_size);
+
+				hdfsPread(fs, read_file, pos, read_buffer as *mut c_void, read_size);
+				// let readed_str = CStr::from_ptr(read_buffer as *const i8).to_str().unwrap();
+				// let mut readed_str = String::from(readed_str);
+				// readed_str.truncate(read_size as usize);
+				// println!("{}: {}", pos, readed_str);
+
+				let readed_bytes = CStr::from_ptr(read_buffer as *const i8).to_bytes();
+				let readed_bytes = readed_bytes.to_vec(); // [0..read_size];
+				println!("{} - {:?}", pos, &readed_bytes[..read_size as usize]);
+
+				remaining = remaining - read_size;
+			}
+
+			hdfsCloseFile(fs, read_file);
+			hdfsDelete(fs, read_path.as_ptr(), 0);
+
+		}
+
+	}
+
+	#[test]
 	fn test_is_dir(){
 		unsafe {
 			let name_node = CString::new("default").expect("CString::new failed");
