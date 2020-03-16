@@ -7,6 +7,10 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 extern crate libc;
 extern crate rand;
 
+pub mod hdfs_reader;
+pub use hdfs_reader::*;
+
+use crate::hdfs_reader::HdfsReader;
 
 #[cfg(test)]
 mod tests {
@@ -124,6 +128,35 @@ mod tests {
 			hdfsDelete(fs, read_path.as_ptr(), 0);
 
 		}
+
+	}
+
+	#[test] 
+	fn test_hdfs_reader(){
+		let path = String::from("/hdfs.h");		
+		let hdfs_reader = HdfsReader::init(path);
+
+		use std::io::BufReader;
+		use std::io::prelude::*;
+
+		let reader = BufReader::new(hdfs_reader);
+		for line in reader.lines() {
+			println!("{}", line.unwrap());
+		}
+
+		// let mut line = String::new();
+		// // let len = reader.read_line(&mut line);
+		// // println!("READ LINE\n{}", line);
+
+		// let mut buffer = String::new();
+		// while let Some(line) = reader.read_line(&mut buffer) {
+		// 	println!("{}", line.trim());
+		// }
+
+		// hdfs_reader.close();
+		// let mut hdfs_reader = HdfsReader {name_node, path, read_pos};
+
+
 
 	}
 
