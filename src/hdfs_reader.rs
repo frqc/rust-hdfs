@@ -16,10 +16,31 @@ pub struct HdfsReader {
 
 impl HdfsReader {
 
+    pub fn init_with_name_node(name_node: String, path: String) -> HdfsReader {
+        let mut reader = HdfsReader {
+            name_node: name_node,
+            path: path,
+            read_pos: 0,
+            size: 0,
+            fs: None,
+            opened_file: None, 
+        };
+
+        reader.connect();
+        reader.open_file();
+    
+        reader
+
+    }
+
     pub fn init(path: String) -> HdfsReader {
         let mut reader = HdfsReader {
+            name_node: String::from("default"), 
             path: path,
-            ..Default::default()
+            read_pos: 0,
+            size: 0,
+            fs: None,
+            opened_file: None, 
         };
     
         reader.connect();
@@ -31,8 +52,12 @@ impl HdfsReader {
     pub fn from_split(path: String, start: i64, end: i64) -> HdfsReader {
 
         let mut reader = HdfsReader {
+            name_node: String::from("default"), 
             path: path,
-            ..Default::default()
+            read_pos: 0,
+            size: 0,
+            fs: None,
+            opened_file: None, 
         };
     
         reader.connect();
@@ -94,24 +119,25 @@ impl HdfsReader {
     }
 }
 
-impl Default for HdfsReader {
-    fn default() -> HdfsReader {
-        HdfsReader {
-            name_node: String::from("default"), 
-            path: String::from("default"), 
-            read_pos: 0,
-            size: 0,
-            fs: None,
-            opened_file: None, 
+impl Drop for HdfsReader {
+    fn drop(&mut self) {
+        match self.opened_file {
+            Some(file) => {
+                unsafe { hdfsCloseFile(self.fs.unwrap(), file); }
+                self.opened_file = None; 
+            }, 
+            _ => {},
+        }
+
+        match self.fs {
+            Some(fs) => {
+                unsafe { hdfsDisconnect(fs); }
+                self.fs = None; 
+            }, 
+            _ => {},
         }
     }
 }
-
-// impl Drop for HdfsReader {
-//     fn drop(&mut self) {
-//         unimplemented!();
-//     }
-// }
 
 impl Read for HdfsReader {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
