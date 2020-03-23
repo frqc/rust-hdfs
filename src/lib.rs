@@ -7,18 +7,15 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 extern crate libc;
 extern crate rand;
 
-pub mod hdfs_reader;
-pub use hdfs_reader::*;
-
-use crate::hdfs_reader::HdfsReader;
+pub mod hdfs_file;
+pub use hdfs_file::*;
 
 #[cfg(test)]
 mod tests {
 
-    use std::ffi::CString;
-    use std::ffi::CStr;
+    use std::ffi::{CStr, CString};
 	use std::str::Utf8Error;
-	
+	use std::io::{Write, BufReader, prelude::*};
 	use rand::{thread_rng, Rng};
 	use rand::distributions::Alphanumeric;
 
@@ -26,10 +23,6 @@ mod tests {
     use libc::c_void;
     use super::*;
 
-    #[test]
-    fn it_works() {
-      assert_eq!(2 + 2, 4);
-    }
 
 	#[test]
 	fn hdfs_write(){
@@ -132,32 +125,31 @@ mod tests {
 	}
 
 	#[test] 
-	fn test_hdfs_reader(){
-		let path = String::from("/hdfs.h");		
-		let hdfs_reader = HdfsReader::init(path);
+	fn test_hdfs_io_write() {
+		let path = String::from("/write.txt");
+		let mut hdfs_file = HdfsFile::create(path.as_str()).unwrap();	
 
-		use std::io::BufReader;
-		use std::io::prelude::*;
+		let buffer = String::from("HHHHHello worldddddd\n");
+		hdfs_file.write(buffer.as_bytes()).unwrap();
+		hdfs_file.flush().unwrap();
+	}
 
+	#[test] 
+	fn test_hdfs_io_read(){
+		let path = String::from("/write.txt");
+		let mut hdfs_writer = HdfsFile::create(path.as_str()).unwrap();	
+
+		let buffer = String::from("HHHHHello\nworldddddd\n");
+		hdfs_writer.write(buffer.as_bytes()).unwrap();
+		hdfs_writer.flush().unwrap();
+		hdfs_writer.close();
+
+		let hdfs_reader = HdfsFile::open(path.as_str()).unwrap();
 		let reader = BufReader::new(hdfs_reader);
+		println!("outputing file:");
 		for line in reader.lines() {
 			println!("{}", line.unwrap());
 		}
-
-		// let mut line = String::new();
-		// // let len = reader.read_line(&mut line);
-		// // println!("READ LINE\n{}", line);
-
-		// let mut buffer = String::new();
-		// while let Some(line) = reader.read_line(&mut buffer) {
-		// 	println!("{}", line.trim());
-		// }
-
-		// hdfs_reader.close();
-		// let mut hdfs_reader = HdfsReader {name_node, path, read_pos};
-
-
-
 	}
 
 	#[test]
