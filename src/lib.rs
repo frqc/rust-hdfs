@@ -25,24 +25,69 @@ mod tests {
 
 
 	#[test]
-	fn hdfs_write(){
+	fn hdfs_raw_write(){
 		unsafe{
-			let name_node = CString::new("default").expect("CString::new failed");
+			let name_node = CString::new("default").unwrap();
 			let fs = hdfsConnect(name_node.as_ptr(), 0);
 
-			let write_path = CString::new("/test.txt").expect("CString::new failed");
+			let random_str: String = thread_rng().sample_iter(&Alphanumeric).take(10).collect();
+			let write_path = ["/", random_str.as_str()].concat();
+			let write_path = CString::new(write_path).unwrap();
+
 			let write_file = hdfsOpenFile(fs, write_path.as_ptr(), (O_WRONLY |O_CREAT) as i32, 0, 0, 0);
 
 			let buffer = String::from("HHHHHello worldddddd\n");
 			let buffer_ptr = buffer.as_ptr() as *const c_void;
 
-			let _written_bytes = hdfsWrite(fs, write_file, buffer_ptr, buffer.len() as i32);
-
-			let _result = hdfsFlush(fs, write_file);
+			let written_bytes = hdfsWrite(fs, write_file, buffer_ptr, buffer.len() as i32);
+			let result = hdfsFlush(fs, write_file);
+			
+			assert_eq!(written_bytes, buffer.len() as i32);
+			assert_eq!(result, 0);
 
 			hdfsCloseFile(fs, write_file);
+			hdfsDisconnect(fs);
 		}
 	}
+
+
+	#[test] 
+	fn test_hdfs_file_write() {
+		let random_str: String = thread_rng().sample_iter(&Alphanumeric).take(10).collect();
+		let path = ["/", random_str.as_str()].concat();
+
+		let mut hdfs_file = HdfsFile::create(path.as_str()).unwrap();	
+
+		let buffer = String::from("HHHHHello worldddddd\n");
+		let written_bytes = hdfs_file.write(buffer.as_bytes()).unwrap();
+		hdfs_file.flush().unwrap();
+
+		assert_eq!(written_bytes, buffer.len());
+
+		hdfs_file.close();
+		delete_dir(path.as_str()).unwrap();
+	}
+
+	#[test] 
+	fn test_hdfs_io_read(){
+		let random_str: String = thread_rng().sample_iter(&Alphanumeric).take(10).collect();
+		let path = ["/", random_str.as_str()].concat();
+		let mut hdfs_writer = HdfsFile::create(path.as_str()).unwrap();	
+
+		let buffer = String::from("HHHHHello\nworldddddd\n");
+		hdfs_writer.write(buffer.as_bytes()).unwrap();
+		hdfs_writer.flush().unwrap();
+		hdfs_writer.close();
+
+		let hdfs_reader = HdfsFile::open(path.as_str()).unwrap();
+		let reader = BufReader::new(hdfs_reader);
+		println!("outputing file:");
+		for line in reader.lines() {
+			println!("{}", line.unwrap());
+		}
+	}
+
+
 
 	#[test]
 	fn test_dir(){
@@ -132,24 +177,6 @@ mod tests {
 		let buffer = String::from("HHHHHello worldddddd\n");
 		hdfs_file.write(buffer.as_bytes()).unwrap();
 		hdfs_file.flush().unwrap();
-	}
-
-	#[test] 
-	fn test_hdfs_io_read(){
-		let path = String::from("/write.txt");
-		let mut hdfs_writer = HdfsFile::create(path.as_str()).unwrap();	
-
-		let buffer = String::from("HHHHHello\nworldddddd\n");
-		hdfs_writer.write(buffer.as_bytes()).unwrap();
-		hdfs_writer.flush().unwrap();
-		hdfs_writer.close();
-
-		let hdfs_reader = HdfsFile::open(path.as_str()).unwrap();
-		let reader = BufReader::new(hdfs_reader);
-		println!("outputing file:");
-		for line in reader.lines() {
-			println!("{}", line.unwrap());
-		}
 	}
 
 	#[test]
