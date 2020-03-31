@@ -7,8 +7,8 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 extern crate libc;
 extern crate rand;
 
-pub mod hdfs_file;
-pub use hdfs_file::*;
+pub mod hdfs_fs;
+pub use hdfs_fs::*;
 
 #[cfg(test)]
 mod tests {
@@ -52,8 +52,8 @@ mod tests {
 
 
 	#[test] 
-	fn test_hdfs_file_write() {
-		let random_str: String = thread_rng().sample_iter(&Alphanumeric).take(10).collect();
+	fn test_hdfs_fs_write() {
+		let random_str = get_ramdon_string();
 		let path = ["/", random_str.as_str()].concat();
 
 		let mut hdfs_file = HdfsFile::create(path.as_str()).unwrap();	
@@ -64,13 +64,13 @@ mod tests {
 
 		assert_eq!(written_bytes, buffer.len());
 
+		hdfs_file.delete().unwrap();
 		hdfs_file.close();
-		delete_dir(path.as_str()).unwrap();
 	}
 
 	#[test] 
 	fn test_hdfs_io_read(){
-		let random_str: String = thread_rng().sample_iter(&Alphanumeric).take(10).collect();
+		let random_str = get_ramdon_string();
 		let path = ["/", random_str.as_str()].concat();
 		let mut hdfs_writer = HdfsFile::create(path.as_str()).unwrap();	
 
@@ -86,8 +86,6 @@ mod tests {
 			println!("{}", line.unwrap());
 		}
 	}
-
-
 
 	#[test]
 	fn test_dir(){
@@ -180,6 +178,18 @@ mod tests {
 	}
 
 	#[test]
+	fn test_get_hosts() {
+		let path = String::from("/CC-MAIN-20161202170900-00000-ip-10-31-129-80.ec2.internal.warc.wet.gz");
+		let mut hdfs_file = HdfsFile::open(path.as_str()).unwrap();	
+
+		let hosts = hdfs_file.get_hosts(0, hdfs_file.size as u64).unwrap();
+		for host in hosts {
+			println!("host: {}", host);
+		}
+
+	}
+
+	#[test]
 	fn test_is_dir(){
 		unsafe {
 			let name_node = CString::new("default").expect("CString::new failed");
@@ -237,7 +247,7 @@ mod tests {
         let name_node = CString::new("default").expect("CString::new failed");
         let fs = hdfsConnect(name_node.as_ptr(), 0);
 
-        let path = String::from("/data/CC-MAIN-20161202170900-00000-ip-10-31-129-80.ec2.internal.warc.wet.gz");
+        let path = String::from("/CC-MAIN-20161202170900-00000-ip-10-31-129-80.ec2.internal.warc.wet.gz");
         let path_cstr = CString::new(path.clone()).unwrap();
 
         let file_info = hdfsGetPathInfo(fs, path_cstr.as_ptr());
@@ -257,6 +267,7 @@ mod tests {
                .count();
 
         for i in 0..len {
+		  println!("i={}", i);
           let one_hosts = *(hosts.offset(i as isize));
           let one_hosts_len = (0..).take_while(|i| {
                                 let arg = one_hosts.offset(*i);
@@ -275,5 +286,9 @@ mod tests {
 
         }
       }
+   }
+
+   fn get_ramdon_string() -> String {
+	thread_rng().sample_iter(&Alphanumeric).take(10).collect()
    }
 }

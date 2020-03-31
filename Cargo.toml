@@ -1,7 +1,7 @@
 [package]
 name = "rust-hdfs"
 version = "0.1.0"
-authors = ["frqc"]
+authors = ["frqc <tanzhenyennn@gmail.com>"]
 build = "build.rs"
 edition = "2018"
 
