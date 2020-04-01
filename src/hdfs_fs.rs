@@ -1,11 +1,10 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs::{OpenOptions};
 use std::ffi::{CStr, CString};
 use libc::c_void;
-
 
 
 pub struct HdfsFile {
@@ -13,21 +12,9 @@ pub struct HdfsFile {
     pub path: PathBuf,
     pub read_pos: i64,
     pub size: i64,
+    pub block_size: i64,
     fs: Option<hdfsFS>,
     opened_file: Option<hdfsFile>, 
-
-    // typedef struct  {
-    //     tObjectKind mKind;   /* file or directory */
-    //     char *mName;         /* the name of the file */
-    //     tTime mLastMod;      /* the last modification time for the file in seconds */
-    //     tOffset mSize;       /* the size of the file in bytes */
-    //     short mReplication;    /* the count of replicas */
-    //     tOffset mBlockSize;  /* the block size for the file */
-    //     char *mOwner;        /* the owner of the file */
-    //     char *mGroup;        /* the group associated with the file */
-    //     short mPermissions;  /* the permissions associated with the file */
-    //     tTime mLastAccess;    /* the last access time for the file in seconds */
-    // } hdfsFileInfo;
 }
 
 
@@ -41,6 +28,7 @@ impl HdfsFile {
             path: path.into(),
             read_pos: 0,
             size: 0,
+            block_size: 0,
             fs: None,
             opened_file: None, 
         };
@@ -59,6 +47,7 @@ impl HdfsFile {
             path: path.into(),
             read_pos: 0,
             size: 0,
+            block_size: 0,
             fs: None,
             opened_file: None, 
         };
@@ -76,6 +65,7 @@ impl HdfsFile {
             path: path.into(),
             read_pos: 0,
             size: 0,
+            block_size: 0,
             fs: None,
             opened_file: None, 
         };
@@ -98,6 +88,7 @@ impl HdfsFile {
             path: path.into(),
             read_pos: start,
             size: end,
+            block_size: 0,
             fs: None,
             opened_file: None, 
         };
@@ -163,18 +154,18 @@ impl HdfsFile {
 
             (true, _) => {
                 let file_info = unsafe {
-                    hdfsGetPathInfo(fs, file_path.as_ptr())
+                    *hdfsGetPathInfo(fs, file_path.as_ptr())
                 };
 
-                let file_size = unsafe {
-                    (*file_info).mSize
-                };
-
+                let file_size = file_info.mSize;
+                let block_size = file_info.mBlockSize;
+                
                 let opened_file = unsafe {
                     hdfsOpenFile(fs, file_path.as_ptr(), flag as i32, 0, 0, 0)
                 };
                 
                 self.size = file_size;
+                self.block_size = block_size;
                 self.opened_file = Some(opened_file);
                 Ok(())
 
@@ -260,6 +251,14 @@ impl Read for HdfsFile {
         let remaining_size = self.size - self.read_pos;
         let read_size = std::cmp::min((buf.len()) as i32, remaining_size as i32);
 
+        match self.opened_file {
+            Some(_) => {},
+            _ => {
+                self.connect();
+                self.open_with_flag(O_RDONLY).unwrap();
+            }
+        }
+
         unsafe {
             hdfsPread(
                 self.fs.unwrap(), 
@@ -296,4 +295,51 @@ impl Write for HdfsFile {
             _ => Err(std::io::Error::new(std::io::ErrorKind::Other, "failed to flush to hdfs")),
         }
     }
+}
+
+pub fn read_dir<P: AsRef<Path>>(path: P) -> Vec<HdfsFile>{
+
+    let mut file_list = Vec::new();
+
+    let name_node = CString::new("default").unwrap();
+    let fs = unsafe {
+        hdfsConnect(name_node.as_ptr(), 0)
+    };
+
+    let file_path = path.as_ref().to_string_lossy();
+    let file_path = CString::new(file_path.as_bytes()).unwrap();
+
+    let mut num_entries: i32 = 0;
+    let list_result = unsafe {
+        hdfsListDirectory(fs, file_path.as_ptr(), &mut num_entries)
+    };
+
+    let list_result = unsafe {
+        std::slice::from_raw_parts(list_result, num_entries as usize)
+    };
+
+    for result in list_result {
+        let file_name = (*result).mName;
+        let file_name = unsafe {
+            CStr::from_ptr(file_name).to_str().unwrap()
+        }; 
+
+        let file_size = (*result).mSize;
+        let file_block_size = (*result).mBlockSize;
+
+        let hdfs_file = HdfsFile {
+            name_node: String::from("default"),
+            path: PathBuf::from(file_name),
+            read_pos:0,
+            size: file_size,
+            block_size: file_block_size,
+            fs: None,
+            opened_file: None
+        };
+
+        file_list.push(hdfs_file);
+    }
+
+    unsafe { hdfsDisconnect(fs) };
+    file_list
 }
