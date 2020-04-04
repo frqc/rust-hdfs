@@ -20,4 +20,4 @@ libc = "0.2"
 rand = "0.7.3"
 
 [build-dependencies]
-bindgen = "*"
+bindgen = "0.53.2"
