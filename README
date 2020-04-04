@@ -1,0 +1,1 @@
+A rust wrapper for hdfs. Binding libhdfs.so using bindgen. 
