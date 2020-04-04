@@ -2,7 +2,7 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::fs::{OpenOptions};
+// use std::fs::{OpenOptions};
 use std::ffi::{CStr, CString};
 use libc::c_void;
 
@@ -33,7 +33,7 @@ impl HdfsFile {
             opened_file: None, 
         };
 
-        reader.connect();
+        reader.connect().unwrap();
         reader.open_with_flag(O_RDONLY).unwrap();
     
         Ok(reader)
@@ -52,7 +52,7 @@ impl HdfsFile {
             opened_file: None, 
         };
     
-        reader.connect();
+        reader.connect().unwrap();
         reader.open_with_flag(O_RDONLY).unwrap();
     
         Ok(reader)
@@ -70,16 +70,16 @@ impl HdfsFile {
             opened_file: None, 
         };
     
-        reader.connect();
-        reader.open_with_flag(O_WRONLY |O_CREAT).unwrap();
+        reader.connect().unwrap();
+        reader.open_with_flag(O_WRONLY | O_CREAT).unwrap();
     
         Ok(reader)
     }
 
     
-    pub fn with_option() -> OpenOptions {
-        unimplemented!();
-    }
+    // pub fn with_option() -> OpenOptions {
+    //     unimplemented!();
+    // }
 
     pub fn from_split<P: Into<PathBuf>>(path: P, start: i64, end: i64) -> HdfsFile {
 
@@ -93,7 +93,7 @@ impl HdfsFile {
             opened_file: None, 
         };
     
-        reader.connect();
+        reader.connect().unwrap();
         reader.open_with_flag(O_RDONLY).unwrap();
 
         reader
@@ -122,18 +122,30 @@ impl HdfsFile {
                     hosts_strings.push(CStr::from_ptr(*one_host).to_string_lossy().into_owned());
                 }
             }
+            hdfsFreeHosts(block_hosts);
             Ok(hosts_strings)
         }
     }
 
     
 
-    fn connect(&mut self) {
+    fn connect(&mut self) -> std::io::Result<()> {
         let name_node_ptr = CString::new(self.name_node.as_bytes()).unwrap();
         let fs = unsafe {
             hdfsConnect(name_node_ptr.as_ptr(), 0)
         };
-        self.fs = Some(fs);
+
+        match fs.is_null(){
+            false => {
+                self.fs = Some(fs);
+                Ok(())
+            }
+            _ => {
+                Err(std::io::Error::new(std::io::ErrorKind::NotConnected, 
+                    format!("Failed to connect {}", self.name_node)))
+
+            }
+        }
     }
 
     fn open_with_flag(&mut self, flag: u32) -> std::io::Result<()> {
@@ -149,7 +161,8 @@ impl HdfsFile {
         match (file_exists, create_flag) {
 
             (false, false) => {
-                Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("No such file: {:?}", self.path)))
+                Err(std::io::Error::new(std::io::ErrorKind::NotFound, 
+                    format!("No such file: {:?}", self.path)))
             }
 
             (true, _) => {
@@ -254,7 +267,7 @@ impl Read for HdfsFile {
         match self.opened_file {
             Some(_) => {},
             _ => {
-                self.connect();
+                self.connect().unwrap();
                 self.open_with_flag(O_RDONLY).unwrap();
             }
         }
@@ -292,7 +305,8 @@ impl Write for HdfsFile {
 
         match result {
             0 => Ok(()),
-            _ => Err(std::io::Error::new(std::io::ErrorKind::Other, "failed to flush to hdfs")),
+            _ => Err(std::io::Error::new(std::io::ErrorKind::Other, 
+                "failed to flush to hdfs")),
         }
     }
 }

@@ -13,7 +13,7 @@ pub use hdfs_fs::*;
 #[cfg(test)]
 mod tests {
 
-    use std::ffi::{CStr, CString};
+    use std::ffi::CString;
 	use std::io::{Write, BufReader, prelude::*};
 	use rand::{thread_rng, Rng};
 	use rand::distributions::Alphanumeric;
