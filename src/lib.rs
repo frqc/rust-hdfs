@@ -88,15 +88,15 @@ mod tests {
 
 	#[test] 
 	fn test_hdfs_fs_read_dir() {
-		let path = String::from("/data");
+		let path = String::from("/");
 		let entries = read_dir(path);
 
 		for entry in entries {
 			println!("{}",entry.path.to_string_lossy());
-			let reader = BufReader::new(entry);
-			for line in reader.lines() {
-				println!("{}", line.unwrap());
-			}
+			// let reader = BufReader::new(entry);
+			// for line in reader.lines() {
+			// 	println!("{}", line.unwrap());
+			// }
 		}
 	}
 

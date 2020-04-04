@@ -9,7 +9,7 @@ use libc::c_void;
 
 pub struct HdfsFile {
     pub name_node: String, 
-    pub path: PathBuf,
+    pub path: PathBuf, // not sure it makes sense or not using Path/PathBuf for hdfs 
     pub read_pos: i64,
     pub size: i64,
     pub block_size: i64,
@@ -21,24 +21,24 @@ pub struct HdfsFile {
 impl HdfsFile {
 
     // Attempts to open a file in read-only mode.
-    pub fn init_with_name_node<P:Into<String>, Q: Into<PathBuf>>(name_node: P, 
-        path: Q) -> std::io::Result<HdfsFile> {
-        let mut reader = HdfsFile {
-            name_node: name_node.into(),
-            path: path.into(),
-            read_pos: 0,
-            size: 0,
-            block_size: 0,
-            fs: None,
-            opened_file: None, 
-        };
+    // pub fn init_with_name_node<P:Into<String>, Q: Into<PathBuf>>(name_node: P, 
+    //     path: Q) -> std::io::Result<HdfsFile> {
+    //     let mut reader = HdfsFile {
+    //         name_node: name_node.into(),
+    //         path: path.into(),
+    //         read_pos: 0,
+    //         size: 0,
+    //         block_size: 0,
+    //         fs: None,
+    //         opened_file: None, 
+    //     };
 
-        reader.connect().unwrap();
-        reader.open_with_flag(O_RDONLY).unwrap();
+    //     reader.connect().unwrap();
+    //     reader.open_with_flag(O_RDONLY).unwrap();
     
-        Ok(reader)
+    //     Ok(reader)
 
-    }
+    // }
 
     // Attempts to open a file in read-only mode.
     pub fn open<P: Into<PathBuf>>(path: P) -> std::io::Result<HdfsFile> {
@@ -83,7 +83,7 @@ impl HdfsFile {
 
     pub fn from_split<P: Into<PathBuf>>(path: P, start: i64, end: i64) -> HdfsFile {
 
-        let mut reader = HdfsFile {
+        let reader = HdfsFile {
             name_node: String::from("default"), 
             path: path.into(),
             read_pos: start,
@@ -93,8 +93,8 @@ impl HdfsFile {
             opened_file: None, 
         };
     
-        reader.connect().unwrap();
-        reader.open_with_flag(O_RDONLY).unwrap();
+        // reader.connect().unwrap();
+        // reader.open_with_flag(O_RDONLY).unwrap();
 
         reader
     }
@@ -111,6 +111,7 @@ impl HdfsFile {
                 .count();
             
             let mut hosts_strings: Vec<String> = Vec::new();
+            // looks too complicated
             for i in 0..block_count {
                 let hosts = *(block_hosts.offset(i as isize));
                 let hosts_len = (0..).take_while(
