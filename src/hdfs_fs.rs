@@ -166,22 +166,41 @@ impl HdfsFile {
             }
 
             (true, _) => {
-                let file_info = unsafe {
-                    *hdfsGetPathInfo(fs, file_path.as_ptr())
+                let file_info_ptr = unsafe {
+                    hdfsGetPathInfo(fs, file_path.as_ptr())
                 };
 
-                let file_size = file_info.mSize;
-                let block_size = file_info.mBlockSize;
-                
-                let opened_file = unsafe {
-                    hdfsOpenFile(fs, file_path.as_ptr(), flag as i32, 0, 0, 0)
-                };
-                
-                self.size = file_size;
-                self.block_size = block_size;
-                self.opened_file = Some(opened_file);
-                Ok(())
+                match file_info_ptr.is_null() {
+                    true => {
+                        Err(std::io::Error::new(std::io::ErrorKind::Other, 
+                            format!("Failed to obtained info for {:?}", self.path)))
+                    }
+                    false => {
 
+                        let file_info = unsafe {
+                            *file_info_ptr
+                        };
+
+                        let file_size = file_info.mSize;
+                        let block_size = file_info.mBlockSize;
+                        let opened_file = unsafe {
+                            hdfsOpenFile(fs, file_path.as_ptr(), flag as i32, 0, 0, 0)
+                        };
+
+                        match opened_file.is_null(){
+                            true => {
+                                Err(std::io::Error::new(std::io::ErrorKind::Other, 
+                                    format!("Failed to open: {:?}", self.path)))
+                            }
+                            false => {
+                                self.size = file_size;
+                                self.block_size = block_size;
+                                self.opened_file = Some(opened_file);
+                                Ok(())
+                            }
+                        }
+                    }
+                }
             }
 
             _ => {
@@ -190,8 +209,16 @@ impl HdfsFile {
                     hdfsOpenFile(fs, file_path.as_ptr(), flag as i32, 0, 0, 0)
                 };
 
-                self.opened_file = Some(opened_file);
-                Ok(())
+                match opened_file.is_null(){
+                    true => {
+                        Err(std::io::Error::new(std::io::ErrorKind::Other, 
+                            format!("Failed to create: {:?}", self.path)))
+                    }
+                    false => {
+                        self.opened_file = Some(opened_file);
+                        Ok(())
+                    }
+                }
             }
         }
     }
@@ -305,7 +332,7 @@ impl Write for HdfsFile {
 
         match result {
             0 => Ok(()),
-            _ => Err(std::io::Error::new(std::io::ErrorKind::Other, 
+            _ => Err(std::io::Error::new(std::io::ErrorKind::WriteZero, 
                 "failed to flush to hdfs")),
         }
     }
